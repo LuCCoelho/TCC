@@ -475,52 +475,101 @@ class _TableView extends StatelessWidget {
   final void Function(CardWithValues row, FieldDefinition field, String? text, String? image) onEdit;
   final ReorderCallback onReorder;
 
+  static const _checkboxWidth = 48.0;
+  static const _handleWidth = 40.0;
+
+  List<FieldDefinition> get _columns => fields.take(4).toList();
+
   @override
   Widget build(BuildContext context) {
+    final columns = _columns;
     return ReorderableListView.builder(
       padding: const EdgeInsets.only(bottom: 100),
       itemCount: rows.length,
       onReorder: onReorder,
       header: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            const SizedBox(width: 48),
-            for (final field in fields.take(4))
-              Expanded(
-                child: Text(
-                  FieldStyleConfig.fromJson(field.styleConfig).label,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.mist),
-                ),
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+        child: _TableRowShell(
+          checkboxWidth: _checkboxWidth,
+          handleWidth: _handleWidth,
+          checkbox: const SizedBox.shrink(),
+          handle: const SizedBox.shrink(),
+          cells: [
+            for (final field in columns)
+              Text(
+                FieldStyleConfig.fromJson(field.styleConfig).label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.muted),
               ),
           ],
         ),
       ),
       itemBuilder: (context, index) {
         final row = rows[index];
-        return ListTile(
+        final selectedRow = selected.contains(row.card.id);
+        return Material(
           key: ValueKey(row.card.id),
-          selected: selected.contains(row.card.id),
-          leading: Checkbox(
-            value: selected.contains(row.card.id),
-            onChanged: (_) => onToggle(row.card.id),
-          ),
-          title: Row(
-            children: [
-              for (final field in fields.take(4))
-                Expanded(
-                  child: _InlineCell(
-                    field: field,
-                    value: row.values[field.id],
-                    onCommit: (text, image) => onEdit(row, field, text, image),
-                  ),
+          color: selectedRow ? AppColors.primarySoft : Colors.transparent,
+          child: InkWell(
+            onTap: () => onOpen(row.card.id),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: _TableRowShell(
+                checkboxWidth: _checkboxWidth,
+                handleWidth: _handleWidth,
+                checkbox: Checkbox(
+                  value: selectedRow,
+                  onChanged: (_) => onToggle(row.card.id),
                 ),
-            ],
+                handle: const Icon(Icons.drag_handle, color: AppColors.muted),
+                cells: [
+                  for (final field in columns)
+                    _InlineCell(
+                      field: field,
+                      value: row.values[field.id],
+                      onCommit: (text, image) => onEdit(row, field, text, image),
+                    ),
+                ],
+              ),
+            ),
           ),
-          trailing: const Icon(Icons.drag_handle),
-          onTap: () => onOpen(row.card.id),
         );
       },
+    );
+  }
+}
+
+class _TableRowShell extends StatelessWidget {
+  const _TableRowShell({
+    required this.checkboxWidth,
+    required this.handleWidth,
+    required this.checkbox,
+    required this.handle,
+    required this.cells,
+  });
+
+  final double checkboxWidth;
+  final double handleWidth;
+  final Widget checkbox;
+  final Widget handle;
+  final List<Widget> cells;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(width: checkboxWidth, child: Center(child: checkbox)),
+        for (final cell in cells)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: cell,
+            ),
+          ),
+        SizedBox(width: handleWidth, child: Center(child: handle)),
+      ],
     );
   }
 }
@@ -536,32 +585,48 @@ class _InlineCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = FieldType.parse(field.type);
     if (type == FieldType.imagem) {
-      return TextButton(
-        onPressed: () async {
-          final path = await ImagePickerHelper.pickAndStore(source: ImageSource.gallery);
-          if (path != null) onCommit(value?.testValue, path);
-        },
-        child: Text(
-          (value?.imagePath ?? '').isEmpty ? 'Imagem' : 'Local',
-          overflow: TextOverflow.ellipsis,
+      return Center(
+        child: TextButton(
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          onPressed: () async {
+            final path = await ImagePickerHelper.pickAndStore(source: ImageSource.gallery);
+            if (path != null) onCommit(value?.testValue, path);
+          },
+          child: Text(
+            (value?.imagePath ?? '').isEmpty ? 'Imagem' : 'Local',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     }
     if (type == FieldType.icone) {
-      return PopupMenuButton<String>(
-        onSelected: (name) => onCommit(name, value?.imagePath),
-        itemBuilder: (context) => [
-          for (final entry in kIconCatalog.entries)
-            PopupMenuItem(value: entry.key, child: Icon(entry.value)),
-        ],
-        child: Icon(iconForName(value?.testValue ?? '') ?? Icons.star_border, size: 18),
+      return Center(
+        child: PopupMenuButton<String>(
+          padding: EdgeInsets.zero,
+          onSelected: (name) => onCommit(name, value?.imagePath),
+          itemBuilder: (context) => [
+            for (final entry in kIconCatalog.entries)
+              PopupMenuItem(value: entry.key, child: Icon(entry.value)),
+          ],
+          child: Icon(iconForName(value?.testValue ?? '') ?? Icons.star_border, size: 18),
+        ),
       );
     }
     return TextFormField(
       key: ValueKey('${field.id}-${value?.updatedAt}'),
       initialValue: value?.testValue ?? '',
+      textAlign: TextAlign.center,
+      maxLines: 1,
+      style: Theme.of(context).textTheme.bodyMedium,
       decoration: const InputDecoration(
         isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 8),
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
