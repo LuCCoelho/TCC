@@ -76,7 +76,7 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
           );
         }
         return Scaffold(
-          backgroundColor: const Color(0xFF2A261C),
+          backgroundColor: AppColors.table,
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             title: const Text('Preview na mesa'),

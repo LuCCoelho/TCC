@@ -8,10 +8,10 @@ import '../../providers/providers.dart';
 import '../../widgets/empty_state.dart';
 
 const kCategories = {
-  'default': ('Padrão', Color(0xFFD4B06A)),
+  'default': ('Padrão', AppColors.primary),
   'nevoa': ('Névoa', Color(0xFF7F9BB8)),
-  'fogo': ('Fogo', Color(0xFFD4655C)),
-  'floresta': ('Floresta', Color(0xFF6FBF9A)),
+  'fogo': ('Fogo', AppColors.danger),
+  'floresta': ('Floresta', AppColors.success),
   'maré': ('Maré', Color(0xFF5B8CDE)),
 };
 

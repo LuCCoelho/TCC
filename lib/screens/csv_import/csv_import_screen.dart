@@ -279,7 +279,7 @@ class _Stepper extends StatelessWidget {
           CircleAvatar(
             radius: 12,
             backgroundColor: i <= step ? AppColors.gold : AppColors.hairline,
-            foregroundColor: AppColors.ink,
+            foregroundColor: Colors.white,
             child: Text('${i + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
           ),
           if (i < labels.length - 1) const Expanded(child: Divider()),

@@ -36,7 +36,7 @@ class NaipeApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Naipe',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(),
+      theme: AppTheme.light(),
       routerConfig: router,
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [Locale('pt', 'BR'), Locale('en')],

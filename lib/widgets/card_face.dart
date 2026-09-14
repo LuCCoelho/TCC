@@ -60,7 +60,7 @@ class CardFace extends StatelessWidget {
                             offset: const Offset(0, 10),
                           ),
                         ],
-                  border: Border.all(color: AppColors.goldDeep.withValues(alpha: 0.55), width: 1.2),
+                  border: Border.all(color: AppColors.paperBorder.withValues(alpha: 0.7), width: 1.2),
                 ),
                 child: Stack(
                   children: [

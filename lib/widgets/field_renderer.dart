@@ -142,7 +142,7 @@ class _ImageFieldBody extends StatelessWidget {
       return ColoredBox(
         color: AppColors.parchment.withValues(alpha: 0.35),
         child: const Center(
-          child: Icon(Icons.add_photo_alternate_outlined, color: AppColors.goldDeep),
+          child: Icon(Icons.add_photo_alternate_outlined, color: AppColors.primaryDeep),
         ),
       );
     }

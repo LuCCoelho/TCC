@@ -359,7 +359,7 @@ class _CanvasPane extends StatelessWidget {
   Widget build(BuildContext context) {
     final defs = fields.map((field) => field.toDefinition('draft')).toList();
     return ColoredBox(
-      color: AppColors.ink,
+      color: AppColors.canvas,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
