@@ -12,6 +12,14 @@ O app trabalha com **blueprints** (modelos mestres reutilizáveis), edição em 
 - CSV: csv + file_picker
 - PDF: pdf + printing
 
+## Demo pública (GitHub Pages)
+
+Versão web publicada automaticamente a cada push em `master`:
+
+**https://luccoelho.github.io/TCC/**
+
+É a build web (não APK/iOS). Câmera/galeria ficam limitadas no navegador; o restante do fluxo (seed, blueprint, coleção, CSV, export) funciona offline no browser.
+
 ## Como rodar
 
 ```bash
