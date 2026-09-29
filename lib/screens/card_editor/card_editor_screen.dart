@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -56,15 +57,19 @@ class _CardEditorScreenState extends ConsumerState<CardEditorScreen> {
   }
 
   Future<void> _pickImage(FieldDefinition field, FieldValue? current, ImageSource source) async {
-    final permission = source == ImageSource.camera ? Permission.camera : Permission.photos;
-    final status = await permission.request();
-    if (status.isDenied || status.isPermanentlyDenied) {
-      setState(() {
-        _permissionMessage = source == ImageSource.camera
-            ? 'Permissão da câmera negada. Você ainda pode colar um caminho ou usar a galeria.'
-            : 'Permissão da galeria negada. A carta continua editável offline.';
-      });
-      return;
+    // No web o browser abre o seletor de arquivos; permission_handler costuma
+    // marcar "photos" como negado e bloqueava a galeria sem abrir nada.
+    if (!kIsWeb) {
+      final permission = source == ImageSource.camera ? Permission.camera : Permission.photos;
+      final status = await permission.request();
+      if (status.isDenied || status.isPermanentlyDenied) {
+        setState(() {
+          _permissionMessage = source == ImageSource.camera
+              ? 'Permissão da câmera negada. Você ainda pode usar a galeria.'
+              : 'Permissão da galeria negada. A carta continua editável offline.';
+        });
+        return;
+      }
     }
     try {
       final path = await ImagePickerHelper.pickAndStore(source: source);
@@ -78,7 +83,9 @@ class _CardEditorScreenState extends ConsumerState<CardEditorScreen> {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Não foi possível usar a imagem: $error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Não foi possível usar a imagem: $error')),
+        );
       }
     }
   }
@@ -236,14 +243,14 @@ class _FieldEditorSheet extends StatelessWidget {
                 decoration: const InputDecoration(hintText: 'Conteúdo da carta'),
                 onChanged: onText,
               )
-            else if (type == FieldType.imagem)
+            else if (type == FieldType.imagem) ...[
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: onPickGallery,
-                      icon: const Icon(Icons.photo_library_outlined),
-                      label: const Text('Galeria'),
+                      icon: Icon(kIsWeb ? Icons.upload_file_outlined : Icons.photo_library_outlined),
+                      label: Text(kIsWeb ? 'Arquivo' : 'Galeria'),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -255,8 +262,15 @@ class _FieldEditorSheet extends StatelessWidget {
                     ),
                   ),
                 ],
-              )
-            else
+              ),
+              if (kIsWeb) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'No desktop, “Câmera” também abre o seletor de arquivos (limitação do navegador).',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+                ),
+              ],
+            ] else
               Wrap(
                 spacing: 8,
                 children: [

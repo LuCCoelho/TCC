@@ -146,6 +146,17 @@ class _ImageFieldBody extends StatelessWidget {
         ),
       );
     }
+    if (ImagePickerHelper.isDataUrl(path)) {
+      final bytes = ImagePickerHelper.dataUrlBytes(path);
+      if (bytes == null) return const _BrokenImage();
+      return Image.memory(
+        bytes,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, _, _) => const _BrokenImage(),
+      );
+    }
     if (ImagePickerHelper.isRemote(path)) {
       return Image.network(
         path,
