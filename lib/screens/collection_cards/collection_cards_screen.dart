@@ -412,8 +412,9 @@ class _GridView extends StatelessWidget {
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 220,
-        childAspectRatio: 0.68,
+        // ~420 ⇒ 1 coluna em phones; 2+ em tablets/desktop (delegate usa ceil).
+        maxCrossAxisExtent: 420,
+        childAspectRatio: 0.72,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -426,18 +427,21 @@ class _GridView extends StatelessWidget {
           onLongPress: () => onToggle(row.card.id),
           child: DecoratedBox(
             decoration: BoxDecoration(
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: isOn ? AppColors.gold : AppColors.hairline, width: isOn ? 2 : 1),
+              border: Border.all(color: isOn ? AppColors.primary : AppColors.hairline, width: isOn ? 2 : 1),
             ),
             child: Stack(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: CardFace(
-                    widthMm: 63,
-                    heightMm: 88,
-                    fields: fields,
-                    values: row.values,
+                  padding: const EdgeInsets.all(12),
+                  child: Center(
+                    child: CardFace(
+                      widthMm: 63,
+                      heightMm: 88,
+                      fields: fields,
+                      values: row.values,
+                    ),
                   ),
                 ),
                 Positioned(
