@@ -14,7 +14,10 @@ class SeedData {
 
   static Future<void> ensure(AppDatabase db) async {
     final existing = await db.select(db.users).getSingleOrNull();
-    if (existing != null) return;
+    if (existing != null) {
+      await _ensureDemoFieldOrder(db);
+      return;
+    }
     await db.transaction(() async {
       final now = DateTime.now();
       await db.into(db.users).insert(UsersCompanion.insert(
@@ -129,7 +132,7 @@ class SeedData {
         y: 4,
         w: 70,
         h: 8,
-        order: 2,
+        order: 0,
         style: const FieldStyleConfig(
           label: 'Nome',
           fontFamily: 'serif',
@@ -163,7 +166,7 @@ class SeedData {
         y: 14,
         w: 84,
         h: 42,
-        order: 0,
+        order: 2,
         style: const FieldStyleConfig(
           label: 'Arte',
           borderColor: '#C4A35A',
@@ -232,6 +235,50 @@ class SeedData {
         style: const FieldStyleConfig(label: 'Símbolo', color: '#8C2F2B'),
       ),
     ];
+  }
+
+  /// Atualiza a ordem do blueprint de demo em bancos já populados
+  /// (Nome e Símbolo como os dois primeiros campos da lista).
+  static Future<void> _ensureDemoFieldOrder(AppDatabase db) async {
+    const orderById = <String, int>{
+      'field-name': 0,
+      'field-icon': 1,
+      'field-art': 2,
+      'field-cost': 3,
+      'field-type': 4,
+      'field-text': 5,
+      'field-stats': 6,
+    };
+    var changed = false;
+    for (final entry in orderById.entries) {
+      final rows = await (db.update(db.fieldDefinitions)
+            ..where((row) => row.id.equals(entry.key)))
+          .write(FieldDefinitionsCompanion(sortOrder: Value(entry.value)));
+      if (rows > 0) changed = true;
+    }
+    if (!changed) return;
+    final fields = await (db.select(db.fieldDefinitions)
+          ..where((row) => row.blueprintId.equals(blueprintId))
+          ..orderBy([(row) => OrderingTerm.asc(row.sortOrder)]))
+        .get();
+    if (fields.isEmpty) return;
+    await (db.update(db.blueprints)..where((row) => row.id.equals(blueprintId)))
+        .write(BlueprintsCompanion(
+      layoutFields: Value(jsonEncode([
+        for (final field in fields)
+          {
+            'id': field.id,
+            'type': field.type,
+            'x_pctg': field.xPctg,
+            'y_pctg': field.yPctg,
+            'w_pctg': field.wPctg,
+            'h_pctg': field.hPctg,
+            'style_config': FieldStyleConfig.fromJson(field.styleConfig).toJson(),
+            'sort_order': field.sortOrder,
+          },
+      ])),
+      updatedAt: Value(DateTime.now()),
+    ));
   }
 
   static String _layoutSnapshot(List<FieldDefinitionsCompanion> fields) {
