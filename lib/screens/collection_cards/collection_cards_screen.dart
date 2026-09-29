@@ -60,9 +60,9 @@ class _CollectionCardsScreenState extends ConsumerState<CollectionCardsScreen> {
             title: Text(collection.name),
             actions: [
               IconButton(
-                tooltip: _grid ? 'Visão em tabela' : 'Visão em grade',
+                tooltip: _grid ? 'Visão em lista' : 'Visão em grade',
                 onPressed: () => setState(() => _grid = !_grid),
-                icon: Icon(_grid ? Icons.table_rows_outlined : Icons.grid_view_outlined),
+                icon: Icon(_grid ? Icons.view_agenda_outlined : Icons.grid_view_outlined),
               ),
               IconButton(
                 tooltip: 'Importar CSV',
@@ -145,7 +145,7 @@ class _CollectionCardsScreenState extends ConsumerState<CollectionCardsScreen> {
                             ),
                             onMenu: (row) => _cardMenu(collection, row),
                           )
-                        : _TableView(
+                        : _CollapsibleListView(
                             rows: rows,
                             fields: defs,
                             selected: _selected,
@@ -153,6 +153,7 @@ class _CollectionCardsScreenState extends ConsumerState<CollectionCardsScreen> {
                             onOpen: (cardId) => context.push(
                               '/project/${widget.projectId}/collection/${widget.collectionId}/card/$cardId',
                             ),
+                            onMenu: (row) => _cardMenu(collection, row),
                             onEdit: (row, field, text, image) async {
                               await ref.read(cardRepositoryProvider).upsertValue(
                                     cardId: row.card.id,
@@ -456,13 +457,14 @@ class _GridView extends StatelessWidget {
   }
 }
 
-class _TableView extends StatelessWidget {
-  const _TableView({
+class _CollapsibleListView extends StatelessWidget {
+  const _CollapsibleListView({
     required this.rows,
     required this.fields,
     required this.selected,
     required this.onToggle,
     required this.onOpen,
+    required this.onMenu,
     required this.onEdit,
     required this.onReorder,
   });
@@ -472,110 +474,214 @@ class _TableView extends StatelessWidget {
   final Set<String> selected;
   final ValueChanged<String> onToggle;
   final ValueChanged<String> onOpen;
+  final ValueChanged<CardWithValues> onMenu;
   final void Function(CardWithValues row, FieldDefinition field, String? text, String? image) onEdit;
   final ReorderCallback onReorder;
 
-  static const _checkboxWidth = 48.0;
-  static const _handleWidth = 40.0;
+  List<FieldDefinition> get _identityFields => fields.take(2).toList();
 
-  List<FieldDefinition> get _columns => fields.take(4).toList();
+  List<FieldDefinition> get _detailFields => fields.length <= 2 ? fields : fields.skip(2).toList();
 
   @override
   Widget build(BuildContext context) {
-    final columns = _columns;
+    final identity = _identityFields;
+    final details = _detailFields;
     return ReorderableListView.builder(
-      padding: const EdgeInsets.only(bottom: 100),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
       itemCount: rows.length,
       onReorder: onReorder,
-      header: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-        child: _TableRowShell(
-          checkboxWidth: _checkboxWidth,
-          handleWidth: _handleWidth,
-          checkbox: const SizedBox.shrink(),
-          handle: const SizedBox.shrink(),
-          cells: [
-            for (final field in columns)
-              Text(
-                FieldStyleConfig.fromJson(field.styleConfig).label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.muted),
-              ),
-          ],
-        ),
-      ),
+      proxyDecorator: (child, index, animation) {
+        return Material(
+          elevation: 2,
+          borderRadius: BorderRadius.circular(16),
+          color: AppColors.surface,
+          child: child,
+        );
+      },
       itemBuilder: (context, index) {
         final row = rows[index];
-        final selectedRow = selected.contains(row.card.id);
-        return Material(
+        return _CollapsibleCardTile(
           key: ValueKey(row.card.id),
-          color: selectedRow ? AppColors.primarySoft : Colors.transparent,
-          child: InkWell(
-            onTap: () => onOpen(row.card.id),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: _TableRowShell(
-                checkboxWidth: _checkboxWidth,
-                handleWidth: _handleWidth,
-                checkbox: Checkbox(
-                  value: selectedRow,
-                  onChanged: (_) => onToggle(row.card.id),
-                ),
-                handle: const Icon(Icons.drag_handle, color: AppColors.muted),
-                cells: [
-                  for (final field in columns)
-                    _InlineCell(
-                      field: field,
-                      value: row.values[field.id],
-                      onCommit: (text, image) => onEdit(row, field, text, image),
-                    ),
-                ],
-              ),
-            ),
-          ),
+          index: index,
+          row: row,
+          identityFields: identity,
+          detailFields: details,
+          selected: selected.contains(row.card.id),
+          onToggle: () => onToggle(row.card.id),
+          onOpen: () => onOpen(row.card.id),
+          onMenu: () => onMenu(row),
+          onEdit: (field, text, image) => onEdit(row, field, text, image),
         );
       },
     );
   }
 }
 
-class _TableRowShell extends StatelessWidget {
-  const _TableRowShell({
-    required this.checkboxWidth,
-    required this.handleWidth,
-    required this.checkbox,
-    required this.handle,
-    required this.cells,
+class _CollapsibleCardTile extends StatefulWidget {
+  const _CollapsibleCardTile({
+    super.key,
+    required this.index,
+    required this.row,
+    required this.identityFields,
+    required this.detailFields,
+    required this.selected,
+    required this.onToggle,
+    required this.onOpen,
+    required this.onMenu,
+    required this.onEdit,
   });
 
-  final double checkboxWidth;
-  final double handleWidth;
-  final Widget checkbox;
-  final Widget handle;
-  final List<Widget> cells;
+  final int index;
+  final CardWithValues row;
+  final List<FieldDefinition> identityFields;
+  final List<FieldDefinition> detailFields;
+  final bool selected;
+  final VoidCallback onToggle;
+  final VoidCallback onOpen;
+  final VoidCallback onMenu;
+  final void Function(FieldDefinition field, String? text, String? image) onEdit;
+
+  @override
+  State<_CollapsibleCardTile> createState() => _CollapsibleCardTileState();
+}
+
+class _CollapsibleCardTileState extends State<_CollapsibleCardTile> {
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(width: checkboxWidth, child: Center(child: checkbox)),
-        for (final cell in cells)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: cell,
-            ),
+    final title = _identityLine(widget.identityFields, primary: true);
+    final subtitle = _identityLine(widget.identityFields, primary: false);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: widget.selected ? AppColors.primarySoft : AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: widget.selected ? AppColors.primary : AppColors.hairline,
+            width: widget.selected ? 1.4 : 1,
           ),
-        SizedBox(width: handleWidth, child: Center(child: handle)),
-      ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            InkWell(
+              onTap: () => setState(() => _expanded = !_expanded),
+              onLongPress: widget.onToggle,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: widget.selected,
+                      onChanged: (_) => widget.onToggle(),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (title != null)
+                            Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          if (subtitle != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.muted,
+                                  ),
+                            ),
+                          ],
+                          if (title == null && subtitle == null)
+                            Text(
+                              'Carta sem identificação',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.muted,
+                                  ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Mais ações',
+                      onPressed: widget.onMenu,
+                      icon: const Icon(Icons.more_vert),
+                    ),
+                    ReorderableDragStartListener(
+                      index: widget.index,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Icon(Icons.drag_handle, color: AppColors.muted),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Icon(
+                        _expanded ? Icons.expand_less : Icons.expand_more,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_expanded) ...[
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Column(
+                  children: [
+                    for (final field in widget.detailFields.isEmpty
+                        ? widget.identityFields
+                        : [...widget.identityFields, ...widget.detailFields])
+                      _ExpandedFieldRow(
+                        field: field,
+                        value: widget.row.values[field.id],
+                        onCommit: (text, image) => widget.onEdit(field, text, image),
+                      ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: widget.onOpen,
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text('Abrir editor'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
+  }
+
+  String? _identityLine(List<FieldDefinition> identity, {required bool primary}) {
+    if (identity.isEmpty) return null;
+    final field = primary ? identity.first : (identity.length > 1 ? identity[1] : null);
+    if (field == null) return null;
+    final label = FieldStyleConfig.fromJson(field.styleConfig).label;
+    final summary = _fieldSummary(field, widget.row.values[field.id]);
+    return '$label: $summary';
   }
 }
 
-class _InlineCell extends StatelessWidget {
-  const _InlineCell({required this.field, required this.value, required this.onCommit});
+class _ExpandedFieldRow extends StatelessWidget {
+  const _ExpandedFieldRow({
+    required this.field,
+    required this.value,
+    required this.onCommit,
+  });
 
   final FieldDefinition field;
   final FieldValue? value;
@@ -583,9 +689,72 @@ class _InlineCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final label = FieldStyleConfig.fromJson(field.styleConfig).label;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 88,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.muted,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+            ),
+          ),
+          Expanded(
+            child: _InlineCell(
+              field: field,
+              value: value,
+              onCommit: onCommit,
+              alignStart: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _fieldSummary(FieldDefinition field, FieldValue? value) {
+  final type = FieldType.parse(field.type);
+  switch (type) {
+    case FieldType.imagem:
+      final path = value?.imagePath ?? '';
+      return path.isEmpty ? 'Sem imagem' : 'Com imagem';
+    case FieldType.icone:
+      final name = value?.testValue ?? '';
+      return name.isEmpty ? '—' : name;
+    case FieldType.texto:
+      final text = value?.testValue?.trim() ?? '';
+      return text.isEmpty ? '—' : text;
+  }
+}
+
+class _InlineCell extends StatelessWidget {
+  const _InlineCell({
+    required this.field,
+    required this.value,
+    required this.onCommit,
+    this.alignStart = false,
+  });
+
+  final FieldDefinition field;
+  final FieldValue? value;
+  final void Function(String? text, String? image) onCommit;
+  final bool alignStart;
+
+  @override
+  Widget build(BuildContext context) {
     final type = FieldType.parse(field.type);
+    final align = alignStart ? TextAlign.start : TextAlign.center;
     if (type == FieldType.imagem) {
-      return Center(
+      return Align(
+        alignment: alignStart ? Alignment.centerLeft : Alignment.center,
         child: TextButton(
           style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -600,13 +769,14 @@ class _InlineCell extends StatelessWidget {
             (value?.imagePath ?? '').isEmpty ? 'Imagem' : 'Local',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
+            textAlign: align,
           ),
         ),
       );
     }
     if (type == FieldType.icone) {
-      return Center(
+      return Align(
+        alignment: alignStart ? Alignment.centerLeft : Alignment.center,
         child: PopupMenuButton<String>(
           padding: EdgeInsets.zero,
           onSelected: (name) => onCommit(name, value?.imagePath),
@@ -621,7 +791,7 @@ class _InlineCell extends StatelessWidget {
     return TextFormField(
       key: ValueKey('${field.id}-${value?.updatedAt}'),
       initialValue: value?.testValue ?? '',
-      textAlign: TextAlign.center,
+      textAlign: align,
       maxLines: 1,
       style: Theme.of(context).textTheme.bodyMedium,
       decoration: const InputDecoration(
